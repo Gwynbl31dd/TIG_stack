@@ -1,0 +1,63 @@
+version: "3"
+
+services:
+    influxdb:
+        build: ./influxdb
+        container_name: influxdb
+        ports:
+            - ${INFLUXDB_PORT}:${INFLUXDB_PORT}
+        volumes:
+            - /var/lib/influxdb:/var/lib/influxdb
+        restart: always
+        env_file:
+            - .env
+        networks:
+            - backend
+            - frontend
+        healthcheck:
+            test: curl -f http://127.0.0.1:8086/health
+            interval: 1m30s
+            timeout: 30s
+            retries: 5
+            start_period: 30s
+
+    telegraf:
+        build: ./telegraf
+        container_name: telegraf
+        links:
+            - influxdb
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - /proc:/hostfs/proc
+        ports:
+            - 42518:42518
+        privileged: true
+        restart: always
+        depends_on:
+            influxdb:
+                condition: service_healthy
+        env_file:
+            - .env
+        networks: 
+            - backend
+            
+    grafana:
+        build: ./grafana
+        container_name: grafana
+        ports: 
+            - ${GRAFANA_PORT}:${GRAFANA_PORT}
+        links:
+            - influxdb
+        volumes:
+            - /var/lib/grafana
+            - /var/log/grafana
+            - /var/lib/grafana/plugins
+        restart: always
+        env_file:
+            - .env
+        networks:
+            - frontend
+
+networks:
+    backend:
+    frontend:
